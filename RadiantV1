@@ -1131,7 +1131,7 @@ local GameName = game:GetService("MarketplaceService"):GetProductInfo(game.Place
 local GameID = game.PlaceId -- getting the games placeid
 local game_name = "" .. GameName .. ""
 local game_id = "" .. GameID .. ""
-local user_type = "Private"
+local user_type = "Public"
 local version_number = "v1" -- you can add more info if you want
 
 InfoSection:AddDivider("Developers");

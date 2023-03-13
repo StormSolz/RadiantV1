@@ -1,0 +1,1203 @@
+local camera = workspace.CurrentCamera
+local runService = game:GetService("RunService")
+local players = game:GetService("Players")
+local localPlayer = players.LocalPlayer
+local mainFolder = Instance.new("Folder", workspace)
+
+mainFolder.Name = "billions"
+local highlightFolder = Instance.new("Folder", workspace.billions)
+highlightFolder.Name = "chams"
+
+loadstring(game:HttpGet('https://raw.githubusercontent.com/Shaniquaxyz/awdwadwadwadwadwadwadwad/main/Universal%20Gui'))()
+-- // ESP LIBRARY
+getgenv().newDrawing = function(type, props)
+    local d = Drawing.new(type);
+    for i,v in next, props or {} do
+        local s,e = pcall(function()
+            d[i] = v;
+        end)
+        if not s then
+            warn(e);
+        end
+    end
+    return d;
+end
+
+getgenv().newObject = function(type, props)
+    local d = Instance.new(type);
+    for i,v in next, props or {} do
+        local s,e = pcall(function()
+            d[i] = v;
+        end)
+        if not s then
+            warn(e);
+        end
+    end
+    return d;
+end
+
+getgenv().removeDrawing = function(drawing)
+    drawing.Visible = false
+    drawing:Remove()
+end
+
+getgenv().getVectorDifference = function(v1, v2)
+    return((v1 + v2)/2)
+end
+
+getgenv().getDistance = function(tpos)
+    pos = camera.CFrame.Position
+    local distance = (tpos - pos).magnitude;
+    return distance
+end
+
+getgenv().round = function(x)
+    return x>=0 and math.floor(x+0.5) or math.ceil(x-0.5)
+end
+
+getgenv().normalize = function(n)
+    return math.sqrt(n*n)
+end
+
+local espTargets = {}
+
+local highlightFolder = workspace.billions.chams
+
+local espSettings = {
+    renders_distance = 10000;
+-- // chams
+    chams_toggled = false;
+    chams_fill_color = Color3.fromRGB(255,255,255);
+    chams_fill_trans = 0;
+    chams_outline_color = Color3.fromRGB(255,255,255);
+    cams_outline_trans = 0;
+-- // boxes
+    box_toggled = false;
+    box_filled = false;
+    box_color = Color3.fromRGB(255,255,255);
+    box_fill_color = Color3.fromRGB(255,255,255);
+    box_fill_trans = 0.5;
+-- // names
+    names_toggled = false;
+    distance_toggled = false;
+    weapon_toggled = false;
+    text_color = Color3.fromRGB(255,255,255);
+-- // health
+    health_toggled = false;
+    health_color_from = Color3.fromRGB(0,255,0);
+    health_color_to = Color3.fromRGB(0,255,0);
+}
+
+local espFunctions = {}
+
+local function  transitionColor(color1, color2, offset)
+    if offset > 1 then
+        local left = offset % 1
+        local off = offset
+        if off % 2 == 0 then
+            offset = left
+        else
+            offset = 1 - left
+        end
+    end
+    local inverse_percent = 1 - offset
+    redPart = color1.R * inverse_percent + color2.R * offset
+    greenPart = color1.G * inverse_percent + color2.G * offset
+    bluePart = color1.B * inverse_percent + color2.B * offset
+    return Color3.new(redPart, greenPart, bluePart)
+end
+
+local function hideDrawings(v)
+	v.box.Visible = false
+    v.outline.Visible = false
+    v.boxfill.Visible = false
+    v.healthbar.Visible = false
+    v.healthoutline.Visible = false
+    v.name.Visible = false
+    v.weapon.Visible = false
+    v.distance.Visible = false
+    v.health.Visible = false
+end
+
+local function addPlayerESP(p)
+    if p ~= localPlayer then
+		if espTargets[p] == nil then
+			espTargets[p] = {
+				outline = newDrawing("Square", {Filled = false, Thickness = 3, Color = Color3.fromRGB(0,0,0)});
+				box = newDrawing("Square", {Filled = false, Thickness = 1});
+				boxfill = newDrawing("Square", {Filled = true, Thickness = 1});
+				healthoutline = newDrawing("Line", {Thickness = 3, Color = Color3.fromRGB(0,0,0)});
+				healthbar = newDrawing("Line", {Thickness = 1});
+				name = newDrawing("Text", {Size = 13, Font = 2, Center = true, Outline = true});
+				weapon = newDrawing("Text", {Size = 13, Font = 2, Center = true, Outline = true});
+				distance = newDrawing("Text", {Size = 13, Font = 2, Center = false, Outline = true});
+				health = newDrawing("Text", {Size = 12, Font = 2, Center = true, Outline = true, Color = Color3.fromRGB(255,255,255)});
+				highlight = newObject("Highlight", {Parent = highlightFolder, Name = p.Name});
+			}
+		end
+	end
+end
+
+local function updatePlayerESP()
+	for player, v in next, espTargets do
+		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character:FindFirstChild("Head") then
+			--highlight
+			v.highlight.Enabled = espSettings.chams_toggled
+			v.highlight.Adornee = player.Character
+			v.highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+			v.highlight.FillColor = espSettings.chams_fill_color
+			v.highlight.FillTransparency = espSettings.chams_fill_trans
+			v.highlight.OutlineColor = espSettings.chams_outline_color
+			v.highlight.OutlineTransparency = espSettings.chams_outline_trans
+
+			local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+			local head = player.Character:FindFirstChild("Head")
+			local lF = player.Character:FindFirstChild("LeftFoot")
+			local rF = player.Character:FindFirstChild("RightFoot")
+			if head and hrp and lF and rF then
+				local headOrigin = hrp.Position + Vector3.new(0,2.4,0)
+				local feetOrigin = hrp.Position - Vector3.new(0,3.3,0)
+				local headPos = camera:WorldToViewportPoint(headOrigin)
+				local feetPos = camera:WorldToViewportPoint(feetOrigin)
+				local centerPos = camera:WorldToViewportPoint(getVectorDifference(headOrigin, feetOrigin))
+				local pos, onScreen = camera:WorldToViewportPoint(hrp.Position)
+				local difference = (headPos.Y - feetPos.Y)
+				difference = normalize(difference)
+				difference = math.max(difference, 16)
+
+				local check = onScreen and (player.Character.Humanoid.Health > 0) and (getDistance(hrp.Position) <= espSettings.renders_distance)
+
+				if check then
+					v.box.Color = espSettings.box_color
+					v.boxfill.Color = espSettings.box_fill_color
+					v.boxfill.Transparency = espSettings.box_fill_trans
+					v.name.Color = espSettings.text_color
+					v.distance.Color = espSettings.text_color
+					v.weapon.Color = espSettings.text_color
+
+					v.box.Size = Vector2.new(math.floor(difference*0.6), math.floor(difference))
+					v.box.Position = Vector2.new(math.floor(centerPos.X - v.box.Size.X / 2), math.floor(centerPos.Y - v.box.Size.Y / 2))
+					v.box.Visible = espSettings.box_toggled
+
+					v.outline.Size = v.box.Size
+					v.outline.Position = v.box.Position
+					v.outline.Visible = espSettings.box_toggled
+
+					v.boxfill.Size = v.box.Size
+					v.boxfill.Position = v.box.Position
+					v.boxfill.Visible = espSettings.box_filled and espSettings.box_toggled
+
+					local healthMult = player.Character.Humanoid.Health / player.Character.Humanoid.MaxHealth
+					--v.healthbar.Color = Color3.fromRGB(255 - (255*healthMult), 255*healthMult, 0)
+					v.healthbar.Color = transitionColor(espSettings.health_color_from, espSettings.health_color_to, healthMult)
+					v.healthbar.From = Vector2.new(v.box.Position.X - 4, (centerPos.Y - v.box.Size.Y / 2) + (difference - (difference * healthMult)))
+					v.healthbar.To = Vector2.new(v.box.Position.X - 4, centerPos.Y + v.box.Size.Y / 2)
+					v.healthbar.Visible = espSettings.health_toggled
+
+					v.healthoutline.From = Vector2.new(v.box.Position.X - 4, centerPos.Y - v.box.Size.Y / 2)
+					v.healthoutline.To = Vector2.new(v.box.Position.X - 4, centerPos.Y + v.box.Size.Y / 2)
+					v.healthoutline.Visible = espSettings.health_toggled
+
+					v.health.Text = tostring(round(player.Character.Humanoid.Health))
+					v.health.Position = Vector2.new(v.healthbar.From.X, v.healthbar.From.Y - v.health.TextBounds.Y/2)
+					v.health.Visible = player.Character.Humanoid.Health < player.Character.Humanoid.MaxHealth and espSettings.health_toggled
+
+					v.name.Text = player.Name
+					v.name.Position = Vector2.new(centerPos.X, (centerPos.Y - v.box.Size.Y / 2) - v.name.TextBounds.Y - 4)
+					v.name.Visible = espSettings.names_toggled
+
+					v.distance.Text = tostring(round(getDistance(hrp.Position))).."m"
+					v.distance.Position = Vector2.new(centerPos.X + v.box.Size.X / 2 + 2, v.box.Position.Y)
+					v.distance.Visible = espSettings.distance_toggled
+
+					local weaponText = espFunctions.getWeaponText(player)
+					if weaponText then
+						v.weapon.Text = weaponText
+					end
+					v.weapon.Position = Vector2.new(centerPos.X, (centerPos.Y + v.box.Size.Y / 2) + 2)
+					v.weapon.Visible = espSettings.weapon_toggled and weaponText ~= nil
+				else
+					hideDrawings(v)
+				end
+			end
+		else
+			hideDrawings(v)
+		end
+    end
+end
+
+for i,p in next, players:GetPlayers() do
+    addPlayerESP(p)
+end
+
+players.PlayerAdded:Connect(function (p)
+    addPlayerESP(p)
+end)
+
+players.PlayerRemoving:Connect(function (p)
+    if espTargets[p] then
+        removeDrawing(espTargets[p].name)
+        removeDrawing(espTargets[p].weapon)
+        removeDrawing(espTargets[p].distance)
+        removeDrawing(espTargets[p].health)
+        removeDrawing(espTargets[p].outline)
+        removeDrawing(espTargets[p].box)
+        removeDrawing(espTargets[p].boxfill)
+        removeDrawing(espTargets[p].healthoutline)
+        removeDrawing(espTargets[p].healthbar)
+        espTargets[p].highlight:Destroy()
+        espTargets[p] = nil
+    end
+end)
+
+runService.RenderStepped:Connect(function()
+    updatePlayerESP()
+end)
+
+espFunctions.getWeaponText = function(player)
+    return "None"
+end
+
+getgenv().espSettings = espSettings
+getgenv().espFunctions = espFunctions
+
+if (not game:IsLoaded()) then
+    game.Loaded:Wait();
+end
+
+local PlaceId = game.PlaceId
+
+local Players = game:GetService("Players");
+local HttpService = game:GetService("HttpService");
+local Workspace = game:GetService("Workspace");
+local Teams = game:GetService("Teams")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService");
+
+local CurrentCamera = Workspace.CurrentCamera
+local WorldToViewportPoint = CurrentCamera.WorldToViewportPoint
+local GetPartsObscuringTarget = CurrentCamera.GetPartsObscuringTarget
+
+local Inset = game:GetService("GuiService"):GetGuiInset().Y
+
+local FindFirstChild = game.FindFirstChild
+local FindFirstChildWhichIsA = game.FindFirstChildWhichIsA
+local IsA = game.IsA
+local Vector2new = Vector2.new
+local Vector3new = Vector3.new
+local CFramenew = CFrame.new
+local Color3new = Color3.new
+
+local Tfind = table.find
+local create = table.create
+local format = string.format
+local floor = math.floor
+local gsub = string.gsub
+local sub = string.sub
+local lower = string.lower
+local upper = string.upper
+local random = math.random
+
+local DefaultSettings = {
+    Esp = {
+        NamesEnabled = false,
+        DisplayNamesEnabled = false,
+        DistanceEnabled = false,
+        HealthEnabled = false,
+        TracersEnabled = false,
+        BoxEsp = false,
+        TeamColors = false,
+        Thickness = 1.5,
+        TracerThickness = 1.6,
+        Transparency = .9,
+        TracerTrancparency = .7,
+        Size = 16,
+        RenderDistance = 9e9,
+        Color = Color3.fromRGB(19, 130, 226),
+        OutlineColor = Color3new(),
+        TracerTo = "Head",
+        BlacklistedTeams = {}
+    },
+    Aimbot = {
+        Enabled = false,
+        SilentAim = false,
+        Wallbang = false,
+        ShowFov = false,
+        Snaplines = false,
+        ThirdPerson = false,
+        FirstPerson = false,
+        ClosestCharacter = false,
+        ClosestCursor = true,
+        Smoothness = 1,
+        SilentAimHitChance = 0,
+        FovThickness = 1,
+        FovTransparency = 1,
+        FovSize = 150,
+        FovColor = Color3new(1, 1, 1),
+        Aimlock = "",
+        SilentAimRedirect = "",
+        BlacklistedTeams = {}
+    },
+    WindowPosition = UDim2.new(0.5, -200, 0.5, -139);
+
+    Version = 1.2
+}
+
+local EncodeConfig, DecodeConfig;
+do
+    local deepsearchset;
+    deepsearchset = function(tbl, ret, value)
+        if (type(tbl) == 'table') then
+            local new = {}
+            for i, v in next, tbl do
+                new[i] = v
+                if (type(v) == 'table') then
+                    new[i] = deepsearchset(v, ret, value);
+                end
+                if (ret(i, v)) then
+                    new[i] = value(i, v);
+                end
+            end
+            return new
+        end
+    end
+
+    DecodeConfig = function(Config)
+        local DecodedConfig = deepsearchset(Config, function(Index, Value)
+            return type(Value) == "table" and (Value.HSVColor or Value.Position);
+        end, function(Index, Value)
+            local Color = Value.HSVColor
+            local Position = Value.Position
+            if (Color) then
+                return Color3.fromHSV(Color.H, Color.S, Color.V);
+            end
+            if (Position and Position.Y and Position.X) then
+                return UDim2.new(UDim.new(Position.X.Scale, Position.X.Offset), UDim.new(Position.Y.Scale, Position.Y.Offset));
+            else
+                return DefaultSettings.WindowPosition;
+            end
+        end);
+        return DecodedConfig
+    end
+
+    EncodeConfig = function(Config)
+        local ToHSV = Color3new().ToHSV
+        local EncodedConfig = deepsearchset(Config, function(Index, Value)
+            return typeof(Value) == "Color3" or typeof(Value) == "UDim2"
+        end, function(Index, Value)
+            local Color = typeof(Value) == "Color3"
+            local Position = typeof(Value) == "UDim2"
+            if (Color) then
+                local H, S, V = ToHSV(Value);
+                return { HSVColor = { H = H, S = S, V = V } };
+            end
+            if (Position) then
+                return { Position = {
+                    X = { Scale = Value.X.Scale, Offset = Value.X.Offset };
+                    Y = { Scale = Value.Y.Scale, Offset = Value.Y.Offset }
+                } };
+            end
+        end)
+        return EncodedConfig
+    end
+end
+
+local GetConfig = function()
+    local canDecode, config = pcall(HttpService.JSONDecode, HttpService, data);
+    if (read and canDecode) then
+        local Decoded = DecodeConfig(config);
+        if (Decoded.Version ~= DefaultSettings.Version) then
+            local Encoded = HttpService:JSONEncode(EncodeConfig(DefaultSettings));
+            return DefaultSettings;
+        end
+        return Decoded;
+    else
+        local Encoded = HttpService:JSONEncode(EncodeConfig(DefaultSettings));
+        return DefaultSettings
+    end
+end
+
+local Settings = GetConfig();
+
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse();
+local MouseVector = Vector2new(Mouse.X, Mouse.Y);
+local Characters = {}
+
+local CustomGet = {
+    [0] = function()
+        return {}
+    end
+}
+
+local Get;
+if (CustomGet[PlaceId]) then
+    Get = CustomGet[PlaceId]();
+end
+
+local GetCharacter = function(Player)
+    if (Get) then
+        return Get.GetCharacter(Player);
+    end
+    return Player.Character
+end
+local CharacterAdded = function(Player, Callback)
+    if (Get) then
+        return
+    end
+    Player.CharacterAdded:Connect(Callback);
+end
+local CharacterRemoving = function(Player, Callback)
+    if (Get) then
+        return
+    end
+    Player.CharacterRemoving:Connect(Callback);
+end
+
+local GetTeam = function(Player)
+    if (Get) then
+        return Get.GetTeam(Player);
+    end
+    return Player.Team
+end
+
+local Drawings = {}
+
+local AimbotSettings = Settings.Aimbot
+local EspSettings = Settings.Esp
+
+local FOV = Drawing.new("Circle");
+FOV.Color = AimbotSettings.FovColor
+FOV.Thickness = AimbotSettings.FovThickness
+FOV.Transparency = AimbotSettings.FovTransparency
+FOV.Filled = false
+FOV.Radius = AimbotSettings.FovSize
+
+local Snaplines = Drawing.new("Line");
+Snaplines.Color = Color3.new(255,255,255)
+Snaplines.Thickness = 1
+Snaplines.Transparency = 1
+Snaplines.Visible = AimbotSettings.Snaplines
+
+table.insert(Drawings, FOV);
+table.insert(Drawings, Snaplines);
+
+local HandlePlayer = function(Player)
+    local Character = GetCharacter(Player);
+    if (Character) then
+        Characters[Player] = Character
+    end
+    CharacterAdded(Player, function(Char)
+        Characters[Player] = Char
+    end);
+    CharacterRemoving(Player, function(Char)
+        Characters[Player] = nil
+        local PlayerDrawings = Drawings[Player]
+        if (PlayerDrawings) then
+            PlayerDrawings.Text.Visible = false
+            PlayerDrawings.Box.Visible = false
+            PlayerDrawings.Tracer.Visible = false
+        end
+    end);
+
+    if (Player == LocalPlayer) then return; end
+
+    local Text = Drawing.new("Text");
+    Text.Color = EspSettings.Color
+    Text.OutlineColor = EspSettings.OutlineColor
+    Text.Size = EspSettings.Size
+    Text.Transparency = EspSettings.Transparency
+    Text.Center = true
+    Text.Outline = true
+
+    local Tracer = Drawing.new("Line");
+    Tracer.Color = EspSettings.Color
+    Tracer.From = Vector2new(CurrentCamera.ViewportSize.X / 2, CurrentCamera.ViewportSize.Y);
+    Tracer.Thickness = EspSettings.TracerThickness
+    Tracer.Transparency = EspSettings.TracerTrancparency
+
+    local Box = Drawing.new("Quad");
+    Box.Thickness = EspSettings.Thickness
+    Box.Transparency = EspSettings.Transparency
+    Box.Filled = false
+    Box.Color = EspSettings.Color
+
+    Drawings[Player] = { Text = Text, Tracer = Tracer, Box = Box }
+end
+
+for Index, Player in pairs(Players:GetPlayers()) do
+    HandlePlayer(Player);
+end
+Players.PlayerAdded:Connect(function(Player)
+    HandlePlayer(Player);
+end);
+
+Players.PlayerRemoving:Connect(function(Player)
+    Characters[Player] = nil
+    local PlayerDrawings = Drawings[Player]
+    for Index, Drawing in pairs(PlayerDrawings or {}) do
+        Drawing.Visible = false
+    end
+    Drawings[Player] = nil
+end);
+
+local SetProperties = function(Properties)
+    for Player, PlayerDrawings in pairs(Drawings) do
+        if (type(Player) ~= "number") then
+            for Property, Value in pairs(Properties.Tracer or {}) do
+                PlayerDrawings.Tracer[Property] = Value
+            end
+            for Property, Value in pairs(Properties.Text or {}) do
+                PlayerDrawings.Text[Property] = Value
+            end
+            for Property, Value in pairs(Properties.Box or {}) do
+                PlayerDrawings.Box[Property] = Value
+            end
+        end
+    end
+end
+
+
+local GetClosestPlayerAndRender = function()
+    MouseVector = Vector2new(Mouse.X, Mouse.Y + Inset);
+    local Closest = create(4);
+    local Vector2Distance = math.huge
+    local Vector3DistanceOnScreen = math.huge
+    local Vector3Distance = math.huge
+
+    if (AimbotSettings.ShowFov) then
+        FOV.Position = MouseVector
+        FOV.Visible = true
+        Snaplines.Visible = false
+    else
+        FOV.Visible = false
+    end
+
+    local LocalRoot = Characters[LocalPlayer] and FindFirstChild(Characters[LocalPlayer], "HumanoidRootPart");
+    for Player, Character in pairs(Characters) do
+        if (Player == LocalPlayer) then continue; end
+        local PlayerDrawings = Drawings[Player]
+        local PlayerRoot = FindFirstChild(Character, "HumanoidRootPart");
+        local PlayerTeam = GetTeam(Player);
+        if (PlayerRoot) then
+            local Redirect = FindFirstChild(Character, AimbotSettings.Aimlock);
+            if (not Redirect) then
+                PlayerDrawings.Text.Visible = false
+                PlayerDrawings.Box.Visible = false
+                PlayerDrawings.Tracer.Visible = false
+                continue;
+            end
+            local RedirectPos = Redirect.Position
+            local Tuple, Visible = WorldToViewportPoint(CurrentCamera, RedirectPos);
+            local CharacterVec2 = Vector2new(Tuple.X, Tuple.Y);
+            local Vector2Magnitude = (MouseVector - CharacterVec2).Magnitude
+            local Vector3Magnitude = LocalRoot and (RedirectPos - LocalRoot.Position).Magnitude or math.huge
+            local InRenderDistance = Vector3Magnitude <= EspSettings.RenderDistance
+
+            if (not Tfind(AimbotSettings.BlacklistedTeams, PlayerTeam)) then
+                local InFovRadius = Vector2Magnitude <= FOV.Radius
+                if (InFovRadius) then
+                    if (Visible and Vector2Magnitude <= Vector2Distance and AimbotSettings.ClosestCursor) then
+                        Vector2Distance = Vector2Magnitude
+                        Closest = {Character, CharacterVec2, Player, Redirect}
+                        if (AimbotSettings.Snaplines and AimbotSettings.ShowFov) then
+                            Snaplines.Visible = true
+                            Snaplines.From = MouseVector
+                            Snaplines.To = CharacterVec2
+                        else
+                            Snaplines.Visible = false
+                        end
+                    end
+
+                    if (Visible and Vector3Magnitude <= Vector3DistanceOnScreen and Settings.ClosestPlayer) then
+                        Vector3DistanceOnScreen = Vector3Magnitude
+                        Closest = {Character, CharacterVec2, Player, Redirect}
+                    end
+                end
+            end
+
+            if (InRenderDistance and Visible and not Tfind(EspSettings.BlacklistedTeams, PlayerTeam)) then
+                local CharacterHumanoid = FindFirstChildWhichIsA(Character, "Humanoid") or { Health = 0, MaxHealth = 0 };
+                PlayerDrawings.Text.Text = format("%s\n%s%s",
+                        EspSettings.NamesEnabled and Player.Name or "",
+                        EspSettings.DistanceEnabled and format("[%s]",
+                            floor(Vector3Magnitude)
+                        ) or "",
+                        EspSettings.HealthEnabled and format(" [%s/%s]",
+                            floor(CharacterHumanoid.Health),
+                            floor(CharacterHumanoid.MaxHealth)
+                        )  or ""
+                    );
+
+                PlayerDrawings.Text.Position = Vector2new(Tuple.X, Tuple.Y - 40);
+
+                if (EspSettings.TracersEnabled) then
+                    PlayerDrawings.Tracer.To = CharacterVec2
+                end
+
+                if (EspSettings.BoxEsp) then
+                    local Parts = {}
+                    for Index, Part in pairs(Character:GetChildren()) do
+                        if (IsA(Part, "BasePart")) then
+                            local ViewportPos = WorldToViewportPoint(CurrentCamera, Part.Position);
+                            Parts[Part] = Vector2new(ViewportPos.X, ViewportPos.Y);
+                        end
+                    end
+
+                    local Top, Bottom, Left, Right
+                    local Distance = math.huge
+                    local ClosestPart = nil
+                    for i2, Pos in next, Parts do
+                        local Mag = (Pos - Vector2new(Tuple.X, 0)).Magnitude;
+                        if (Mag <= Distance) then
+                            ClosestPart = Pos
+                            Distance = Mag
+                        end
+                    end
+                    Top = ClosestPart
+                    ClosestPart = nil
+                    Distance = math.huge
+                    for i2, Pos in next, Parts do
+                        local Mag = (Pos - Vector2new(Tuple.X, CurrentCamera.ViewportSize.Y)).Magnitude;
+                        if (Mag <= Distance) then
+                            ClosestPart = Pos
+                            Distance = Mag
+                        end
+                    end
+                    Bottom = ClosestPart
+                    ClosestPart = nil
+                    Distance = math.huge
+                    for i2, Pos in next, Parts do
+                        local Mag = (Pos - Vector2new(0, Tuple.Y)).Magnitude;
+                        if (Mag <= Distance) then
+                            ClosestPart = Pos
+                            Distance = Mag
+                        end
+                    end
+                    Left = ClosestPart
+                    ClosestPart = nil
+                    Distance = math.huge
+                    for i2, Pos in next, Parts do
+                        local Mag = (Pos - Vector2new(CurrentCamera.ViewportSize.X, Tuple.Y)).Magnitude;
+                        if (Mag <= Distance) then
+                            ClosestPart = Pos
+                            Distance = Mag
+                        end
+                    end
+                    Right = ClosestPart
+                    ClosestPart = nil
+                    Distance = math.huge
+
+                    PlayerDrawings.Box.PointA = Vector2new(Right.X, Top.Y);
+                    PlayerDrawings.Box.PointB = Vector2new(Left.X, Top.Y);
+                    PlayerDrawings.Box.PointC = Vector2new(Left.X, Bottom.Y);
+                    PlayerDrawings.Box.PointD = Vector2new(Right.X, Bottom.Y);
+                end
+
+                if (EspSettings.TeamColors) then
+                    local TeamColor;
+                    if (PlayerTeam) then
+                        local BrickTeamColor = PlayerTeam.TeamColor
+                        TeamColor = BrickTeamColor.Color
+                    else
+                        TeamColor = Color3new(0.639216, 0.635294, 0.647059);
+                    end
+                    PlayerDrawings.Text.Color = TeamColor
+                    PlayerDrawings.Box.Color = TeamColor
+                    PlayerDrawings.Tracer.Color = TeamColor
+                end
+
+                PlayerDrawings.Text.Visible = true
+                PlayerDrawings.Box.Visible = EspSettings.BoxEsp
+                PlayerDrawings.Tracer.Visible = EspSettings.TracersEnabled
+            else
+                PlayerDrawings.Text.Visible = false
+                PlayerDrawings.Box.Visible = false
+                PlayerDrawings.Tracer.Visible = false
+            end
+        else
+            PlayerDrawings.Text.Visible = false
+            PlayerDrawings.Box.Visible = false
+            PlayerDrawings.Tracer.Visible = false
+        end
+    end
+
+    return unpack(Closest);
+end
+
+local Locked, SwitchedCamera = false, false
+UserInputService.InputBegan:Connect(function(Inp)
+    if (AimbotSettings.Enabled and Inp.UserInputType == Enum.UserInputType.MouseButton2) then
+        Locked = true
+        if (AimbotSettings.FirstPerson and LocalPlayer.CameraMode ~= Enum.CameraMode.LockFirstPerson) then
+            LocalPlayer.CameraMode = Enum.CameraMode.LockFirstPerson
+            SwitchedCamera = true
+        end
+    end
+end);
+UserInputService.InputEnded:Connect(function(Inp)
+    if (AimbotSettings.Enabled and Inp.UserInputType == Enum.UserInputType.MouseButton2) then
+        Locked = false
+        if (SwitchedCamera) then
+            LocalPlayer.CameraMode = Enum.CameraMode.Classic
+        end
+    end
+end);
+
+local ClosestCharacter, Vector, Player, Aimlock;
+RunService.RenderStepped:Connect(function()
+    ClosestCharacter, Vector, Player, Aimlock = GetClosestPlayerAndRender();
+    if (Locked and AimbotSettings.Enabled and ClosestCharacter) then
+        if (AimbotSettings.FirstPerson) then
+            if (syn) then
+                CurrentCamera.CoordinateFrame = CFramenew(CurrentCamera.CoordinateFrame.p, Aimlock.Position);
+            else
+                mousemoverel((Vector.X - MouseVector.X) / AimbotSettings.Smoothness, (Vector.Y - MouseVector.Y) / AimbotSettings.Smoothness);
+            end
+        elseif (AimbotSettings.ThirdPerson) then
+            mousemoveabs(Vector.X, Vector.Y);
+        end
+    end
+end);
+
+local Hooks = {
+    HookedFunctions = {},
+    OldMetaMethods = {},
+    MetaMethodHooks = {},
+    HookedSignals = {}
+}
+
+local OtherDeprecated = {
+    children = "GetChildren"
+}
+
+local RealMethods = {}
+local FakeMethods = {}
+
+local HookedFunctions = Hooks.HookedFunctions
+local MetaMethodHooks = Hooks.MetaMethodHooks
+local OldMetaMethods = Hooks.OldMetaMethods
+
+local randomised = random(1, 10);
+local randomisedVector = Vector3new(random(1, 10), random(1, 10), random(1, 10));
+Mouse.Move:Connect(function()
+    randomised = random(1, 10);
+    randomisedVector = Vector3new(random(1, 10), random(1, 10), random(1, 10));
+end);
+
+local x = setmetatable({}, {
+    __index = function(...)
+        print("index", ...);
+    end,
+    __add = function(...)
+        print("add", ...);
+    end,
+    __sub = function(...)
+        print("sub", ...);
+    end,
+    __mul = function(...)
+        print("mul", ...);
+    end
+});
+
+MetaMethodHooks.Index = function(...)
+    local __Index = OldMetaMethods.__index
+
+    if (Player and Aimlock and ... == Mouse and not checkcaller()) then
+        local CallingScript = getfenv(2).script;
+        if (CallingScript.Name == "CallingScript") then
+            return __Index(...);
+        end
+
+        local _Mouse, Index = ...
+        if (type(Index) == 'string') then
+            Index = gsub(sub(Index, 0, 100), "%z.*", "");
+        end
+        local PassedChance = random(1, 100) < AimbotSettings.SilentAimHitChance
+        if (PassedChance and AimbotSettings.SilentAim) then
+            local Parts = GetPartsObscuringTarget(CurrentCamera, {CurrentCamera.CFrame.Position, Aimlock.Position}, {LocalPlayer.Character, ClosestCharacter});
+
+            Index = string.gsub(Index, "^%l", upper);
+            local Hit = #Parts == 0 or AimbotSettings.Wallbang
+            if (not Hit) then
+                return __Index(...);
+            end
+            if (Index == "Target") then
+                return Aimlock
+            end
+            if (Index == "Hit") then
+                local hit = __Index(...);
+                local pos = Aimlock.Position + randomisedVector / 10
+                return CFramenew(pos.X, pos.Y, pos.Z, unpack({hit:components()}, 4));
+            end
+            if (Index == "X") then
+                return Vector.X + randomised / 10
+            end
+            if (Index == "Y") then
+                return Vector.Y + randomised / 10
+            end
+        end
+    end
+
+    return __Index(...);
+end
+
+MetaMethodHooks.Namecall = function(...)
+    local __Namecall = OldMetaMethods.__namecall
+    local self = ...
+    local Method = gsub(getnamecallmethod() or "", "^%l", upper);
+    local Hooked = HookedFunctions[Method]
+    if (Hooked and self == Hooked[1]) then
+        return Hooked[3](...);
+    end
+
+    return __Namecall(...);
+end
+
+for MMName, MMFunc in pairs(MetaMethodHooks) do
+    local MetaMethod = string.format("__%s", string.lower(MMName));
+    Hooks.OldMetaMethods[MetaMethod] = hookmetamethod(game, MetaMethod, MMFunc);
+end
+
+HookedFunctions.FindPartOnRay = {Workspace, Workspace.FindPartOnRay, function(...)
+    local OldFindPartOnRay = HookedFunctions.FindPartOnRay[4]
+    if (AimbotSettings.SilentAim and Player and Aimlock and not checkcaller()) then
+        local PassedChance = random(1, 100) < AimbotSettings.SilentAimHitChance
+        if (ClosestCharacter and PassedChance) then
+            local Parts = GetPartsObscuringTarget(CurrentCamera, {CurrentCamera.CFrame.Position, Aimlock.Position}, {LocalPlayer.Character, ClosestCharacter});
+            if (#Parts == 0 or AimbotSettings.Wallbang) then
+                return Aimlock, Aimlock.Position + (Vector3new(random(1, 10), random(1, 10), random(1, 10)) / 10), Vector3new(0, 1, 0), Aimlock.Material
+            end
+        end
+    end
+    return OldFindPartOnRay(...);
+end};
+
+HookedFunctions.FindPartOnRayWithIgnoreList = {Workspace, Workspace.FindPartOnRayWithIgnoreList, function(...)
+    local OldFindPartOnRayWithIgnoreList = HookedFunctions.FindPartOnRayWithIgnoreList[4]
+    if (Player and Aimlock and not checkcaller()) then
+        local CallingScript = getcallingscript();
+        local PassedChance = random(1, 100) < AimbotSettings.SilentAimHitChance
+        if (CallingScript.Name ~= "ControlModule" and ClosestCharacter and PassedChance) then
+            local Parts = GetPartsObscuringTarget(CurrentCamera, {CurrentCamera.CFrame.Position, Aimlock.Position}, {LocalPlayer.Character, ClosestCharacter});
+            if (#Parts == 0 or AimbotSettings.Wallbang) then
+                return Aimlock, Aimlock.Position + (Vector3new(random(1, 10), random(1, 10), random(1, 10)) / 10), Vector3new(0, 1, 0), Aimlock.Material
+            end
+        end
+    end
+    return OldFindPartOnRayWithIgnoreList(...);
+end};
+
+for Index, Function in pairs(HookedFunctions) do
+    Function[4] = hookfunction(Function[2], Function[3]);
+end
+
+
+--crosshair
+getgenv().CrosshairSettings = {
+    Color = Color3.fromRGB(255,255,255),
+    RainbowColor = false,
+    Opacity = 1,
+    Length = 0, -- Length of each line
+    Thickness = 0, -- Thickness of each line
+    Offset = 0, -- Offset from the middle point
+    Dot = false, -- not recommended
+    FollowCursor = false, -- Crosshair follows the cursor
+    HideMouseIcon = false, -- Hides the mouse icon, set to 0 to ignore
+    HideGameCrosshair = false, -- Hides the current game's crosshair (if its supported)
+    ToggleKey = nil, -- Toggles crosshair visibility
+} -- v1.2.1
+loadstring(game:HttpGet("https://raw.githubusercontent.com/JuixyV2/Ui-Libs/main/cross", true))()
+
+-- // WaterMark
+
+
+-- // Aimbot
+local LegitTab = library:AddTab("Combat"); 
+local LegitColunm1 = LegitTab:AddColumn();
+local LegitColunm2 = LegitTab:AddColumn();
+local LegitMain = LegitColunm1:AddSection("Aim Bot")
+local LegitFOV = LegitColunm2:AddSection("FOV")
+
+LegitMain:AddDivider("Main");
+
+LegitMain:AddToggle({text = "Enabled(M2)", flag = "", callback = function(bool)
+    AimbotSettings.Enabled = bool
+    if (not AimbotSettings.FirstPerson and not AimbotSettings.ThirdPerson) then
+        AimbotSettings.FirstPerson = true
+    end
+end})
+
+LegitMain:AddList({text = "AimBone", values = {"Head", "Torso"}, callback = function(option)
+    AimbotSettings.Aimlock = option
+end})
+
+LegitMain:AddList({text = "Aimbot Type", values = {"First Person", "Third Person BROKEN"}, callback = function(option)
+    if (option == "Third Person") then
+        AimbotSettings.ThirdPerson = true
+        AimbotSettings.FirstPerson = false
+    else
+        AimbotSettings.ThirdPerson = false
+        AimbotSettings.FirstPerson = true
+    end
+end})
+
+LegitFOV:AddToggle({text = "Draw Circle", flag = "", callback = function(bool)
+    AimbotSettings.ShowFov = bool
+    FOV.Visible = bool
+    FOV.Color = color
+end})
+
+LegitFOV:AddToggle({text = "Fill Circle", flag = "", callback = function(bool)
+    FOV.Filled = bool
+end})
+
+LegitFOV:AddSlider({text = "Circle Size", flag = "", min = 0, max = 100, float = 1, value = 110, callback = function(value)
+    AimbotSettings.FovSize = value
+    FOV.Radius = value
+end});
+
+LegitFOV:AddSlider({text = "Circle Thickness", flag = "", min = 0, max = 100, float = 1, value = 1, callback = function(value)
+    AimbotSettings.FovThickness = value
+    FOV.Thickness = value
+end});
+
+LegitFOV:AddSlider({text = "Circle Transparency", flag = "", min = 0, max = 1, float = .1, value = 1, callback = function(value)
+    AimbotSettings.FovTransparency = value
+    FOV.Transparency = value
+end});  
+
+LegitFOV:AddDivider("Snapline");
+
+
+LegitFOV:AddToggle({text = "Draw Snapline", flag = "", callback = function(bool)
+    Snaplines.Visible = bool
+    AimbotSettings.Snaplines = bool
+end}):AddColor({flag = "", callback = function(color) 
+    Snaplines.Color = color
+end})
+
+LegitFOV:AddSlider({text = "Snapline Thickness", flag = "", min = 0, max = 100, float = 1, value = 1, callback = function(value)
+    Snaplines.Thickness = value
+end});
+
+LegitFOV:AddSlider({text = "Snapline Transparency", flag = "", min = 0, max = 1, float = .1, value = 1, callback = function(value)
+    Snaplines.Transparency = value
+end});  
+
+-- // Misc
+local MiscTab = library:AddTab("Misc"); 
+local MiscColunm1 = MiscTab:AddColumn();
+local MiscMain = MiscColunm1:AddSection("Local Misc")
+
+MiscMain:AddSlider({text = "WalksPeed", flag = "Walk", min = 16, max = 500, float = 1, value = 1, callback = function(wlk)
+game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = wlk
+end});
+MiscMain:AddSlider({text = "Jump Power", flag = "Jump", min = 50, max = 300, float = 1, value = 1, callback = function(jmp)
+    game.Players.LocalPlayer.Character.Humanoid.JumpPower = jmp
+    end})
+-- // Visuals
+local VisualsTab = library:AddTab("Visuals"); 
+local VisualsColunm1 = VisualsTab:AddColumn();
+local VisualsColunm2 = VisualsTab:AddColumn();
+local VisualsMain = VisualsColunm1:AddSection("Main")
+local VisualsCrosshair = VisualsColunm2:AddSection("CrossHair")
+local VisualsEffects = VisualsColunm2:AddSection("Visual Effects")
+
+
+VisualsMain:AddDivider("Boxes");
+
+VisualsMain:AddToggle({text = "Boxes", flag = "box_toggled", callback = function(EspBoxesEnabled)
+  espSettings.box_toggled = EspBoxesEnabled
+     end}):AddColor({flag = "Box_Color", callback = function() espSettings.box_color = library.flags.Box_Color end})
+
+
+VisualsMain:AddToggle({text = "Box Fill", flag = "box_toggled", callback = function(EspBoxFillEnabled)
+  espSettings.box_filled = EspBoxFillEnabled
+     end}):AddColor({flag = "BoxFill_Color", callback = function() espSettings.box_fill_color = library.flags.BoxFill_Color end})
+
+     VisualsMain:AddSlider{text = "Box Fill Transparency", flag = "boxft", min = 0, max = 1, float = .1, value = espSettings.box_fill_trans, callback = function(value) 
+        espSettings.box_fill_trans = value
+    end}
+
+     VisualsMain:AddDivider("Chams");
+
+VisualsMain:AddToggle({text = "Chams", flag = "box_toggled", callback = function(ChamsToggled)
+  espSettings.chams_toggled = ChamsToggled
+     end}):AddColor({flag = "Chams_Color", callback = function() espSettings.chams_fill_color = library.flags.Chams_Color 
+     end}):AddColor({flag = "Chams_OLColor", callback = function(value) espSettings.chams_outline_color = value end})
+
+     VisualsMain:AddSlider{text = "Chams Fill Transparency", flag = "", min = 0, max = 1, float = .1, value = espSettings.chams_fill_trans, callback = function(value) 
+        espSettings.chams_fill_trans = value
+    end}
+
+
+     VisualsMain:AddDivider("Text");
+
+     VisualsMain:AddColor({text = "Text Color", flag = "", color = Color3.new(255,255,255), callback = function(color)
+        espSettings.text_color = color
+    end})
+
+VisualsMain:AddToggle({text = "Names", flag = "box_toggled", callback = function(NamesToggled)
+  espSettings.names_toggled = NamesToggled
+     end})
+
+     VisualsMain:AddToggle({text = "Distance", flag = "", callback = function(bool)
+        espSettings.distance_toggled = bool
+           end})
+     VisualsMain:AddToggle({text = "Weapon", flag = "", callback = function(bool)
+        espSettings.weapon_toggled = bool
+            end})
+
+    VisualsMain:AddToggle({text = "Names", flag = "box_toggled", callback = function(NamesToggled)
+        espSettings.names_toggled = NamesToggled
+    end})
+     
+
+
+     VisualsMain:AddDivider("Health");
+
+VisualsMain:AddToggle({text = "Health", flag = "box_toggled", callback = function(HealthToggled)
+  espSettings.health_toggled = HealthToggled
+     end}):AddColor({flag = "Healthfrom_color", callback = function(value) espSettings.health_color_from = value
+     end}):AddColor({flag = "Healthto_color", callback = function(value) espSettings.health_color_to  = value end})
+
+
+-- // max distance
+     VisualsMain:AddDivider("Other Settings");
+
+     VisualsMain:AddSlider{text = "Max Distance", flag = "Distance1", min = 0, max = 10000, float = 1, value = espSettings.renders_distance, callback = function(value) 
+        espSettings.renders_distance = value
+    end}
+     
+-- // crosshair
+    VisualsCrosshair:AddDivider("Main");
+
+    VisualsCrosshair:AddColor({text = "Crosshair Color", flag = "", color = Color3.new(255,255,255), callback = function(color)
+        getgenv().CrosshairSettings.Color = color
+    end})
+
+    VisualsCrosshair:AddToggle({text = "Rainbow", flag = "", callback = function(bool)
+        getgenv().CrosshairSettings.RainbowColor = bool
+    end})
+
+    VisualsCrosshair:AddToggle({text = "Follow Cursor", flag = "", callback = function(bool)
+        getgenv().CrosshairSettings.FollowCursor = bool
+    end})
+
+    VisualsCrosshair:AddToggle({text = "Hide Mouse Icon", flag = "", callback = function(bool)
+        getgenv().CrosshairSettings.HideMouseIcon = bool
+    end})
+
+    VisualsCrosshair:AddDivider("Settings");
+
+    VisualsCrosshair:AddSlider{text = "Length", flag = "", min = 0, max = 100, float = 1, value = getgenv().CrosshairSettings.Length, callback = function(value) 
+        getgenv().CrosshairSettings.Length = value
+    end}
+
+    VisualsCrosshair:AddSlider{text = "Thickness", flag = "", min = 0, max = 100, float = 1, value = getgenv().CrosshairSettings.Thickness, callback = function(value) 
+        getgenv().CrosshairSettings.Thickness = value
+    end}
+
+    VisualsCrosshair:AddSlider{text = "Offset", flag = "", min = 0, max = 100, float = 1, value = getgenv().CrosshairSettings.Offset, callback = function(value) 
+        getgenv().CrosshairSettings.Offset = value
+    end}
+
+-- // misc
+VisualsEffects:AddColor({text = "Ambient", flag = "", color = game:GetService("Lighting").Ambient, callback = function(color)
+    game:GetService("Lighting").Ambient = color
+end}):AddColor({flag = "", color = game:GetService("Lighting").OutdoorAmbient, callback = function(color)
+    game:GetService("Lighting").OutdoorAmbient = color
+end})
+
+VisualsEffects:AddColor({text = "ColorShift", flag = "", color = game:GetService("Lighting").ColorShift_Top , callback = function(color)
+    game:GetService("Lighting").ColorShift_Top = color
+end}):AddColor({flag = "", color = game:GetService("Lighting").ColorShift_Bottom , callback = function(color)
+    game:GetService("Lighting").ColorShift_Bottom = color
+end})
+    
+VisualsEffects:AddDivider("World");
+
+VisualsEffects:AddToggle({text = "Global Shadows", flag = "", state = game:GetService("Lighting").GlobalShadows, callback = function(bool)
+    game:GetService("Lighting").GlobalShadows = bool
+end})
+-- // settings
+local SettingsTab = library:AddTab("Settings"); 
+local SettingsColumn = SettingsTab:AddColumn(); 
+local SettingsColumn2 = SettingsTab:AddColumn(); 
+local SettingSection = SettingsColumn:AddSection("Menu"); 
+local InfoSection = SettingsColumn2:AddSection("Info"); --- idk how to make it goto the right u can figure it out
+local GameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name -- getting the games name
+local GameID = game.PlaceId -- getting the games placeid
+local game_name = "" .. GameName .. ""
+local game_id = "" .. GameID .. ""
+local user_type = "Private"
+local version_number = "v1" -- you can add more info if you want
+
+InfoSection:AddDivider("Developers");
+InfoSection:AddLabel("Shaniquà#3135 - Main Dev")
+InfoSection:AddLabel("Juixy#0001 - Scriptng") -- you can add more ppl
+InfoSection:AddDivider("Other Info");
+InfoSection:AddLabel("Game - " .. game_id .. ""); -- you can either gave the game name or id, replace (game_id) with game_name
+InfoSection:AddLabel("User - " .. user_type.. "");
+InfoSection:AddLabel("Version - " .. version_number .. "");
+
+
+SettingSection:AddBind({text = "Open / Close", flag = "UI Toggle", nomouse = true, key = "End", callback = function()
+    library:Close();
+end});
+
+SettingSection:AddColor({text = "Accent Color", flag = "Menu Accent Color", color = Color3.new(0.599623620510101318359375, 0.447115242481231689453125, 0.97174417972564697265625), callback = function(color)
+    if library.currentTab then
+        library.currentTab.button.TextColor3 = color;
+    end
+    for i,v in pairs(library.theme) do
+        v[(v.ClassName == "TextLabel" and "TextColor3") or (v.ClassName == "ImageLabel" and "ImageColor3") or "BackgroundColor3"] = color;
+    end
+end});
+
+-- [Background List]
+local backgroundlist = {
+    Floral = "rbxassetid://5553946656",
+    Flowers = "rbxassetid://6071575925",
+    Circles = "rbxassetid://6071579801",
+    Hearts = "rbxassetid://6073763717"
+};
+
+-- [Background List]
+local back = SettingSection:AddList({text = "Background", max = 4, flag = "background", values = {"Floral", "Flowers", "Circles", "Hearts", "Anime", "Shocked"}, value = "Floral", callback = function(v)
+    if library.main then
+        library.main.Image = backgroundlist[v];
+    end
+end});
+-- [Background Color Picker]
+back:AddColor({flag = "backgroundcolor", color = Color3.new(), callback = function(color)
+    if library.main then
+        library.main.ImageColor3 = color;
+    end
+end, trans = 1, calltrans = function(trans)
+    if library.main then
+        library.main.ImageTransparency = 1 - trans;
+    end
+end});
+
+-- [Tile Size Slider]
+SettingSection:AddSlider({text = "Tile Size", min = 50, max = 500, value = 50, callback = function(size)
+    if library.main then
+        library.main.TileSize = UDim2.new(0, size, 0, size);
+    end
+end});
+
+-- [Discord Button]
+SettingSection:AddButton({text = "Copy Discord", callback = function()
+	local text = "discord.gg/BsDG23DYZk"
+        setclipboard(text)
+        print("Text copied to clipboard: " .. text)
+end});
+
+SettingSection:AddButton({text = "Unload", callback = function()
+    library:Unload();
+end});
+-- // Initialize
+library:Init();
+library:selectTab(library.tabs[1]);
